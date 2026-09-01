@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 
@@ -19,13 +19,16 @@ const config: NextConfig = {
   output: 'standalone',
 
   /**
-   * Tracing must cover wherever the SDK actually resolves.
+   * Tracing root must be THIS repository's own root, not a level above it.
    *
-   * While this app sits inside the monorepo, node_modules is hoisted to the
-   * repository root, so tracing has to reach one level above. Once this
-   * repository stands alone, `here` is the root and the parent is harmless.
+   * A level above was correct only while this app lived inside a bigger
+   * monorepo with a shared node_modules. Standalone, this repo IS the root: get
+   * this wrong and the build succeeds but Next nests the compiled output one
+   * directory deeper than the Dockerfile expects, so `node server.js` fails at
+   * startup with "Cannot find module '/app/server.js'" — a working build that
+   * crashes on boot.
    */
-  outputFileTracingRoot: join(here, '..'),
+  outputFileTracingRoot: here,
 };
 
 export default config;
