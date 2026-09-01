@@ -2,7 +2,7 @@
   "name": "@beorchid/core-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Web reference app — proves login and database access end to end (Section 3.1)",
+  "description": "Web reference app \u2014 proves login and database access end to end (Section 3.1)",
   "engines": {
     "node": ">=22.0.0 <23"
   },
@@ -10,10 +10,13 @@
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:sdk": "npm run build --workspace @beorchid/core-sdk",
+    "test:sdk": "npm run test --workspace @beorchid/core-sdk",
+    "test": "npm run test --workspace @beorchid/core-sdk"
   },
   "dependencies": {
-    "@beorchid/core-sdk": "file:../core-sdk",
+    "@beorchid/core-sdk": "*",
     "@clerk/nextjs": "^6.9.6",
     "next": "^16.3.3",
     "pg": "^8.13.1",
@@ -26,5 +29,8 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "typescript": "^5.7.2"
-  }
+  },
+  "workspaces": [
+    "packages/core-sdk"
+  ]
 }
