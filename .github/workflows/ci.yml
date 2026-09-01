@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The SDK is a nested workspace and must be built before anything else
+      # in this repo can resolve it — same requirement the Dockerfile has.
+      - run: npm run build:sdk
+
+      - run: npm run typecheck
+
+      - name: Typecheck the SDK on its own
+        run: npm run typecheck --workspace @beorchid/core-sdk
+
+      - run: npm test
+
+      - name: Build the app
+        # A placeholder key. It only needs to look like a real one for the
+        # build to proceed — the actual value is never used outside a live
+        # Clerk session. This step exists because a broken build has passed
+        # every check above it before: outputFileTracingRoot pointing one
+        # directory too high compiled cleanly and only failed at container
+        # startup with "Cannot find module '/app/server.js'". A build run
+        # here catches that class of failure before it reaches a deploy.
+        run: npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
