@@ -7,9 +7,27 @@ const here = dirname(fileURLToPath(import.meta.url));
 const config: NextConfig = {
   reactStrictMode: true,
 
-  // The SDK ships as a workspace sibling and is transpiled by Next rather than
-  // pre-built into the app, so a change to the contract is visible immediately.
+  // The SDK lives in its own sibling repository (../core-sdk), linked in via
+  // a file: dependency, and is transpiled by Next rather than pre-built, so a
+  // change to the contract is visible immediately.
   transpilePackages: ['@beorchid/core-sdk'],
+
+  /**
+   * Required because the SDK now resolves to a symlink OUTSIDE this repo's
+   * own directory tree (../core-sdk, its own separate repository). Next
+   * refuses to bundle a symlinked module that resolves outside the project
+   * root unless this is set — without it the build fails with "Module not
+   * found: Can't resolve '@beorchid/core-sdk'" despite node_modules
+   * resolving it correctly.
+   *
+   * Turbopack (Next 16's default builder) does not honour this flag as of
+   * 16.3.4 — the build still fails under Turbopack with this set. Webpack
+   * does honour it. This is why package.json's build script passes
+   * --webpack explicitly rather than using next build's default.
+   */
+  experimental: {
+    externalDir: true,
+  },
 
   /**
    * Standalone output bundles only the files actually reached at runtime, which
