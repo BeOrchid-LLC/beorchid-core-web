@@ -26,15 +26,30 @@ export interface CoreClient {
    * That is an ordinary state, not an error: Clerk creates the account and the
    * webhook that projects it into core.users arrives moments later, so a user
    * can legitimately reach a page in between. Callers must handle it.
+   *
+   * userToken (Section 3.3): a caller with no trusted server of its own — a
+   * mobile app — passes the person's own current Clerk session token here.
+   * Core API verifies it directly rather than trusting clerkUserId as given, so
+   * a leaked app key alone cannot be used to read an arbitrary person's
+   * identity. A trusted-server caller like core-web omits it; that path is
+   * unchanged.
    */
   resolveContext(
     clerkUserId: string,
     appKey: string,
     clerkOrgId?: string,
+    userToken?: string,
   ): Promise<ResolvedContext | null>;
   getUsers(ids: string[]): Promise<CoreUser[]>;
   getOrganizations(ids: string[]): Promise<CoreOrganization[]>;
-  resolvePermissions(membershipId: string, appId: string): Promise<EffectivePermissions>;
+  /** userToken: see resolveContext. Required for a caller with no trusted
+   * server, so Core API can confirm the membership actually belongs to the
+   * person the token verifies to, not just to whichever id was passed in. */
+  resolvePermissions(
+    membershipId: string,
+    appId: string,
+    userToken?: string,
+  ): Promise<EffectivePermissions>;
 }
 
 export interface HttpCoreClientConfig {
@@ -52,7 +67,12 @@ export interface HttpCoreClientConfig {
 export class HttpCoreClient implements CoreClient {
   constructor(private readonly config: HttpCoreClientConfig) {}
 
-  async #get<T>(path: string, params: Record<string, string>, notFoundAsNull = false): Promise<T> {
+  async #get<T>(
+    path: string,
+    params: Record<string, string>,
+    notFoundAsNull = false,
+    userToken?: string,
+  ): Promise<T> {
     const url = new URL(path, this.config.baseUrl);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
@@ -64,6 +84,7 @@ export class HttpCoreClient implements CoreClient {
           authorization: `Bearer ${this.config.apiKey}`,
           'x-beorchid-app': this.config.appKey,
           accept: 'application/json',
+          ...(userToken ? { 'x-user-token': `Bearer ${userToken}` } : {}),
         },
         signal: controller.signal,
       });
@@ -77,7 +98,7 @@ export class HttpCoreClient implements CoreClient {
     }
   }
 
-  async resolveContext(clerkUserId: string, appKey: string, clerkOrgId?: string) {
+  async resolveContext(clerkUserId: string, appKey: string, clerkOrgId?: string, userToken?: string) {
     return this.#get<ResolvedContext | null>(
       '/v1/me',
       {
@@ -86,6 +107,7 @@ export class HttpCoreClient implements CoreClient {
         ...(clerkOrgId ? { clerk_org_id: clerkOrgId } : {}),
       },
       true,
+      userToken,
     );
   }
 
@@ -99,10 +121,12 @@ export class HttpCoreClient implements CoreClient {
     return this.#get<CoreOrganization[]>('/v1/organizations', { ids: ids.join(',') });
   }
 
-  async resolvePermissions(membershipId: string, appId: string) {
-    return this.#get<EffectivePermissions>('/v1/permissions/resolve', {
-      membership_id: membershipId,
-      app_id: appId,
-    });
+  async resolvePermissions(membershipId: string, appId: string, userToken?: string) {
+    return this.#get<EffectivePermissions>(
+      '/v1/permissions/resolve',
+      { membership_id: membershipId, app_id: appId },
+      false,
+      userToken,
+    );
   }
 }

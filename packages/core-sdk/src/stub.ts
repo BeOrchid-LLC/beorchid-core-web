@@ -35,6 +35,7 @@ export class StubCoreClient implements CoreClient {
     clerkUserId: string,
     appKey: string,
     _clerkOrgId?: string,
+    _userToken?: string,
   ): Promise<ResolvedContext | null> {
     const user = this.fixture.users.find((u) => u.clerkUserId === clerkUserId) ?? null;
     // Matches the real client: an unknown user has no Core identity yet.
@@ -67,7 +68,11 @@ export class StubCoreClient implements CoreClient {
     return ids.includes(this.fixture.organization.id) ? [this.fixture.organization] : [];
   }
 
-  async resolvePermissions(membershipId: string, appId: string): Promise<EffectivePermissions> {
+  async resolvePermissions(
+    membershipId: string,
+    appId: string,
+    _userToken?: string,
+  ): Promise<EffectivePermissions> {
     const perApp = this.fixture.permissionsByApp[appId] ?? [];
     return {
       membershipId,
