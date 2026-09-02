@@ -130,3 +130,82 @@ export class HttpCoreClient implements CoreClient {
     );
   }
 }
+
+export interface UserTokenCoreClientConfig {
+  /** Base URL of the Core API, e.g. https://core-api.beorchid.com */
+  baseUrl: string;
+  /**
+   * Returns the caller's own current Clerk session token, or null when there
+   * is none. Called fresh on every request rather than captured once, since a
+   * session token is short-lived and Clerk's SDK is what keeps it current.
+   */
+  getToken: () => Promise<string | null>;
+  timeoutMs?: number;
+}
+
+/**
+ * For a caller with no trusted server of its own (Section 3.3: mobile).
+ *
+ * core-web keeps CORE_API_KEY server-side, where the browser never sees it. A
+ * mobile app has no server side: any key in its bundle is extractable by
+ * anyone who downloads it. So unlike HttpCoreClient, this holds no app
+ * credential at all, every request carries only the person's own Clerk
+ * session token, and Core API verifies it directly against a route mounted
+ * outside the app-key-gated /v1/* tree (core-api's clerk-auth middleware and
+ * routes/mobile.ts). The calling app is fixed to core_mobile server-side,
+ * never asserted by this client, which is why appKey/appId parameters below
+ * are accepted (to satisfy CoreClient) but not sent anywhere.
+ */
+export class UserTokenCoreClient implements CoreClient {
+  constructor(private readonly config: UserTokenCoreClientConfig) {}
+
+  async #get<T>(path: string, params: Record<string, string>, notFoundAsNull = false): Promise<T> {
+    const token = await this.config.getToken();
+    if (!token) {
+      throw new CoreApiError('No Clerk session token available to call Core API.', 401);
+    }
+
+    const url = new URL(path, this.config.baseUrl);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs ?? 5000);
+    try {
+      const res = await fetch(url, {
+        headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+        signal: controller.signal,
+      });
+      if (res.status === 404 && notFoundAsNull) return null as T;
+      if (!res.ok) {
+        throw new CoreApiError(`Core API ${res.status} for ${path}`, res.status, await res.text());
+      }
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** clerkUserId, appKey and clerkOrgId are ignored: the mobile route derives
+   * all three from the verified token and the fixed core_mobile registration,
+   * server-side. Accepted only so this remains a drop-in CoreClient. */
+  async resolveContext() {
+    return this.#get<ResolvedContext | null>('/mobile/v1/me', {}, true);
+  }
+
+  async getUsers(ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.#get<CoreUser[]>('/mobile/v1/users', { ids: ids.join(',') });
+  }
+
+  async getOrganizations(ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.#get<CoreOrganization[]>('/mobile/v1/organizations', { ids: ids.join(',') });
+  }
+
+  /** appId is ignored, same reason as resolveContext's parameters. */
+  async resolvePermissions(membershipId: string) {
+    return this.#get<EffectivePermissions>('/mobile/v1/permissions/resolve', {
+      membership_id: membershipId,
+    });
+  }
+}
