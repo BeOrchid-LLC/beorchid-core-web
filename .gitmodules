@@ -1,0 +1,3 @@
+[submodule "packages/core-sdk"]
+	path = packages/core-sdk
+	url = https://github.com/BeOrchid-LLC/core-sdk.git

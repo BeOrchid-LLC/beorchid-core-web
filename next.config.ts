@@ -7,24 +7,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const config: NextConfig = {
   reactStrictMode: true,
 
-  // The SDK lives in its own sibling repository (../core-sdk), linked in via
-  // a file: dependency, and is transpiled by Next rather than pre-built, so a
-  // change to the contract is visible immediately.
+  // The SDK is its own separate repository (BeOrchid-LLC/core-sdk), vendored
+  // in as a git submodule at packages/core-sdk and linked in as an npm
+  // workspace, and is transpiled by Next rather than pre-built, so a change
+  // to the contract is visible immediately.
   transpilePackages: ['@beorchid/core-sdk'],
 
-  /**
-   * Required because the SDK now resolves to a symlink OUTSIDE this repo's
-   * own directory tree (../core-sdk, its own separate repository). Next
-   * refuses to bundle a symlinked module that resolves outside the project
-   * root unless this is set — without it the build fails with "Module not
-   * found: Can't resolve '@beorchid/core-sdk'" despite node_modules
-   * resolving it correctly.
-   *
-   * Turbopack (Next 16's default builder) does not honour this flag as of
-   * 16.3.4 — the build still fails under Turbopack with this set. Webpack
-   * does honour it. This is why package.json's build script passes
-   * --webpack explicitly rather than using next build's default.
-   */
+  // Historical note: this was required while the SDK resolved to a symlink
+  // outside this repo's directory tree (a sibling checkout at ../core-sdk).
+  // Now that it's a submodule under packages/core-sdk, the symlink resolves
+  // inside the project root and this flag is no longer load-bearing — left
+  // enabled since it's harmless and avoids re-breaking the build if the SDK
+  // ever moves back outside the tree.
   experimental: {
     externalDir: true,
   },

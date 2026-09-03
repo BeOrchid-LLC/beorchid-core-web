@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v4
         with:
@@ -18,16 +20,19 @@ jobs:
 
       - run: npm ci
 
-      # The SDK is a nested workspace and must be built before anything else
-      # in this repo can resolve it — same requirement the Dockerfile has.
-      - run: npm run build:sdk
+      # The SDK is a nested workspace (packages/core-sdk, a git submodule
+      # pointing at the sibling BeOrchid-LLC/core-sdk repo) and must be built
+      # before anything else in this repo can resolve it — same requirement
+      # the Dockerfile has.
+      - run: npm run build --workspace @beorchid/core-sdk
 
       - run: npm run typecheck
 
       - name: Typecheck the SDK on its own
         run: npm run typecheck --workspace @beorchid/core-sdk
 
-      - run: npm test
+      - name: Test the SDK
+        run: npm test --workspace @beorchid/core-sdk
 
       - name: Build the app
         # A placeholder key. It only needs to look like a real one for the
