@@ -5,12 +5,19 @@ demonstrates that permissions determine what a user can reach (§3.1, §6.4).
 
 ## Running it
 
-From the repository root:
+`core-web` is its own repository. `@beorchid/core-sdk` lives in
+[its own separate repo](https://github.com/BeOrchid-LLC/core-sdk), vendored in
+here as a git submodule at `packages/core-sdk` and linked as an npm workspace
+(this was a sibling-clone `file:../core-sdk` dependency until 3 September
+2026 — changed because that pattern doesn't survive a container build or a
+CI checkout that clones only this repository, see `next.config.ts` and the
+`Dockerfile` for what actually depends on the submodule being present):
 
 ```bash
+git submodule update --init     # only needed once, or after a fresh clone
 npm install
-npm run build:sdk
-npm run dev:web          # http://localhost:3100
+npm run build --workspace @beorchid/core-sdk
+npm run dev                      # http://localhost:3100
 ```
 
 It runs today with no Clerk instance and no Core API, using development
@@ -50,7 +57,10 @@ mounts. The dev sign-in route stops responding.
 
 `@clerk/nextjs` is already installed and the provider is already wired, so
 nothing needs adding. Configure the instance itself per
-[`../core-api/docs/clerk-configuration.md`](../core-api/docs/clerk-configuration.md).
+[`beorchid-core`'s `docs/clerk-configuration.md`](https://github.com/BeOrchid-LLC/beorchid-core/blob/main/docs/clerk-configuration.md)
+— a sibling repository (formerly `core-api`, a directory in the same
+monorepo this repo also used to be part of; both are now separate repos, so
+the old relative link no longer resolves).
 
 Two things still needed for production sign-in, neither of which Clerk can
 supply: a Google Cloud OAuth client and a Microsoft Entra ID app registration
